@@ -1,0 +1,15 @@
+OUTPUT_DIR: "output/ctic_yolov8"
+FONTSIZE: 11
+MOT:
+  VIDEO: "datasets/test2.avi"
+  REID_MODEL_OPTS: "models/res-ibn/opts.yaml"
+  REID_MODEL_CKPT: "models/res-ibn/net_19.pth"
+  REID_FP16: false
+  REID_BATCHSIZE: 1
+  DETECTOR: "yolov5s"
+  TRACKER: "bytetrack_iou"
+  SHOW: false
+  VIDEO_OUTPUT: true
+
+  ATTRIBUTE_INFER_BATCHSIZE: 1
+  REFINE: false

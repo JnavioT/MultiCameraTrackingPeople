@@ -6,7 +6,7 @@ MOT:
   REID_MODEL_CKPT: "models/resnet50_mixstyle/net_19.pth"
   REID_FP16: false
   REID_BATCHSIZE: 1
-  DETECTOR: "yolov5x6"
+  DETECTOR: "yolov5l"
   TRACKER: "bytetrack_iou"
   MIN_FRAMES: 5
   SHOW: false

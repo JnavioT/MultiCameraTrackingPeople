@@ -15,6 +15,12 @@ from tools import log
 
 MTMC_OUTPUT_NAME = "mtmc"
 
+# file_path = cfg.MOT.VIDEO
+# parent_path = os.path.dirname(file_path)
+# name = file_path.split('/')[-1]
+# newName = name.split('.')[0] + '.avi'
+# videoStreaming =  parent_path+'/'+newName
+
 
 def run_express_mtmc(cfg: CfgNode):
     """Run Express MTMC on a given config."""
@@ -32,22 +38,22 @@ def run_express_mtmc(cfg: CfgNode):
         cam_names.append(cam_video_name)
 
         # set output dir of MOT to a unique folder under the root OUTPUT_DIR
-        cam_dir = os.path.join(cfg.OUTPUT_DIR, f"{cam_idx}_{cam_video_name}")
+        cam_dir = os.path.join(cfg.OUTPUT_DIR, f"{cam_idx}_{cam_video_name}") #0_v1_hls
         cam_dirs.append(cam_dir)
         cam_cfg.OUTPUT_DIR = cam_dir
         if len(cfg.EVAL.GROUND_TRUTHS) == len(cfg.EXPRESS.CAMERAS):
             cam_cfg.EVAL.GROUND_TRUTHS = [cfg.EVAL.GROUND_TRUTHS[cam_idx]]
         cam_cfg.freeze()
 
-        mot_configs.append(cam_cfg)
+        mot_configs.append(cam_cfg) #OUTPUT_DIR: "output/ctic_hls_test1" + /0_v1_hls
         if not check_mot_config(cam_cfg):
             log.error(
                 f"Error in the express config of camera {len(mot_configs) - 1}.")
             return None
 
     # run MOT in all cameras
-    for mot_conf in mot_configs:
-        run_mot(mot_conf)
+    for mot_conf in mot_configs: # pasar a hilos
+        run_mot(mot_conf) # yolo +reid -> ids, -> tracklets
 
     log.info("Express: Running MOT on all cameras finished. Running MTMC...")
 
@@ -58,24 +64,24 @@ def run_express_mtmc(cfg: CfgNode):
     mtmc_cfg.defrost()
     mtmc_cfg.MTMC.PICKLED_TRACKLETS = pickle_paths
     mtmc_cfg.freeze()
-    mtracks = run_mtmc(mtmc_cfg)
+    mtracks = run_mtmc(mtmc_cfg) # postprocesamiento 
 
     log.info("Express: Running MTMC on all cameras finished. Saving final results ...")
 
     # save single cam tracks
     final_pickle_paths = [os.path.join(
         d, f"{MTMC_OUTPUT_NAME}.pkl") for d in cam_dirs]
-    final_csv_paths = [os.path.join(
-        d, f"{MTMC_OUTPUT_NAME}.csv") for d in cam_dirs]
-    final_txt_paths = [os.path.join(
-        d, f"{MTMC_OUTPUT_NAME}.txt") for d in cam_dirs]
-    save_tracklets_per_cam(mtracks, final_pickle_paths)
-    save_tracklets_txt_per_cam(mtracks, final_txt_paths)
-    save_tracklets_csv_per_cam(mtracks, final_csv_paths)
+    # final_csv_paths = [os.path.join(
+    #     d, f"{MTMC_OUTPUT_NAME}.csv") for d in cam_dirs]
+    # final_txt_paths = [os.path.join(
+    #     d, f"{MTMC_OUTPUT_NAME}.txt") for d in cam_dirs]
+    # save_tracklets_per_cam(mtracks, final_pickle_paths)
+    # save_tracklets_txt_per_cam(mtracks, final_txt_paths)
+    # save_tracklets_csv_per_cam(mtracks, final_csv_paths)
 
     if cfg.EXPRESS.FINAL_VIDEO_OUTPUT:
         for i, cam_dir in enumerate(cam_dirs):
-            video_in = mot_configs[i].MOT.VIDEO
+            video_in = mot_configs[i].MOT.VIDEO # busca un video con el nombre de MOT.VIDEO
             video_ext = video_in.split(".")[1]
             video_out = os.path.join(
                 cam_dir, f"{MTMC_OUTPUT_NAME}.{video_ext}")
@@ -94,14 +100,14 @@ def run_express_mtmc(cfg: CfgNode):
         return mtracks
 
     mtmc_cfg.defrost()
-    mtmc_cfg.EVAL.PREDICTIONS = final_txt_paths
+    #mtmc_cfg.EVAL.PREDICTIONS = final_txt_paths
     mtmc_cfg.freeze()
-    eval_res = run_evaluation(mtmc_cfg)
+    #eval_res = run_evaluation(mtmc_cfg)
 
-    if eval_res:
-        log.info("Evaluation successful.")
-    else:
-        log.error("Evaluation unsuccessful: probably EVAL config had some errors.")
+    # if eval_res:
+    #     log.info("Evaluation successful.")
+    # else:
+    #     log.error("Evaluation unsuccessful: probably EVAL config had some errors.")
 
     return mtracks
 

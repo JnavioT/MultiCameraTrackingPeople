@@ -185,3 +185,8 @@ class Tracklet:
                     enter = fr
                 leave = fr
         return enter, leave
+    
+    def cut_tracklet(self, numFrame):
+        if numFrame>0:
+            self.frames = [i for i in self.frames if i>=numFrame]
+        

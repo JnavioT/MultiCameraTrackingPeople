@@ -99,11 +99,11 @@ if __name__ == "__main__":
     for i, pkl_path in enumerate(cfg.MTMC.PICKLED_TRACKLETS):
         mtmc_pkl_path = os.path.join(cfg.OUTPUT_DIR, f"{i}_{os.path.split(pkl_path)[1]}")
         pkl_paths.append(mtmc_pkl_path)
-    csv_paths = [pth.split(".")[0] + ".csv" for pth in pkl_paths]
-    txt_paths = [pth.split(".")[0] + ".txt" for pth in pkl_paths]
+    # csv_paths = [pth.split(".")[0] + ".csv" for pth in pkl_paths]
+    # txt_paths = [pth.split(".")[0] + ".txt" for pth in pkl_paths]
     save_tracklets_per_cam(mtracks, pkl_paths)
-    save_tracklets_csv_per_cam(mtracks, csv_paths)
-    save_tracklets_txt_per_cam(mtracks, txt_paths)
+    # save_tracklets_csv_per_cam(mtracks, csv_paths)
+    # save_tracklets_txt_per_cam(mtracks, txt_paths)
 
     log.info("Results saved.")
 
@@ -117,7 +117,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     cfg.defrost()
-    cfg.EVAL.PREDICTIONS = txt_paths
+    #cfg.EVAL.PREDICTIONS = txt_paths
     cfg.freeze()
     eval_res = run_evaluation(cfg)
     if eval_res:

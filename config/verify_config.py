@@ -28,7 +28,7 @@ common_mot_checks = {
     "REID_MODEL_CKPT": os.path.isfile,
     "REID_FP16": _is(bool),
     "REID_BATCHSIZE": lambda x: _is(int)(x) and x >= 1,
-    "DETECTOR": lambda x: x.startswith("yolov5"),
+    "DETECTOR": lambda x: x.startswith("yolov8") or x.startswith("yolov5"),
     "TRACKER": lambda x: x in ["deepsort", "bytetrack_iou"],
     "SHOW": _is(bool),
     "ONLINE_VIDEO_OUTPUT": _is(bool),
@@ -41,7 +41,7 @@ common_mot_checks = {
 }
 
 isolated_mot_checks = {
-    "VIDEO": os.path.isfile,
+    #"VIDEO": os.path.isfile,
     "DETECTION_MASK": lambda x: x is None or os.path.isfile(x),
     "VALID_ZONEPATHS": lambda x: _is(list)(x) and all(_is(str)(y) for y in x),
     "ZONE_MASK_DIR": lambda x: x is None or os.path.isdir(x),
@@ -49,7 +49,7 @@ isolated_mot_checks = {
 }
 
 common_mtmc_checks = {
-    "CAMERA_LAYOUT": lambda x: x is None or (_is(str)(x) and os.path.isfile(x)),
+    "CAMERA_LAYOUT": lambda x: x is None or (_is(str)(x) and os.path.isfile(x)), # quitar luego
     "LINKAGE": lambda x: _is(str)(x) and x in ["average", "single", "complete", "mean_feature"],
     "MIN_SIM": lambda x: _is(float)(x) and x >= -1.0,
 }
@@ -59,7 +59,7 @@ isolated_mtmc_checks = {
 }
 
 express_checks = {
-    "CAMERAS": lambda x: _is(list)(x) and all(_check_express_camera(y) for y in x),
+    #"CAMERAS": lambda x: _is(list)(x) and all(_check_express_camera(y) for y in x),
     "FINAL_VIDEO_OUTPUT": _is(bool),
 }
 

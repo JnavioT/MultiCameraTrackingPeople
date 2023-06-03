@@ -1,10 +1,10 @@
 wheel
-torch==1.12.0
+#torch==1.12.0
 pytorch_metric_learning==1.2.0
 numpy>=1.18.5
 pandas>=1.2.2
 scipy==1.5.0
-torchvision==0.13.0
+#torchvision==0.13.0
 matplotlib>=3.3.3
 pyyaml>=6.0
 timm==0.6.7
@@ -16,8 +16,9 @@ yacs>=0.1.8
 opencv-python==4.5.5.64
 requests>=2.25.1
 Pillow==9.1.0
+#Pillow 9.1.0 reemplazo a pillow==9.3.0
 motmetrics>=1.2.5
 lap
 cython
-cython_bbox
+#cython_bbox
 

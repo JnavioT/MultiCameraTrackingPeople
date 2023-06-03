@@ -3,7 +3,7 @@ import argparse
 import pickle
 
 from mtmc.multicam_tracklet import MulticamTracklet, get_tracks_by_cams
-from mot.video_output import annotate_video_with_tracklets
+from mot.video_output import annotate_video_with_tracklets, annotate_video_with_tracklets_iter
 from mot.tracklet_processing import save_tracklets, save_tracklets_csv, save_tracklets_txt
 
 
@@ -36,9 +36,15 @@ def save_tracklets_txt_per_cam(multicam_tracks: List[MulticamTracklet], save_pat
         save_tracklets_txt(tracks, path)
 
 
-def annotate_video_mtmc(video_in, video_out, multicam_tracks, cam_idx, **kwargs):
+def annotate_video_mtmc(video_in, video_out, multicam_tracks, cam_idx, pixel,**kwargs):
     tracks = get_tracks_by_cams(multicam_tracks)[cam_idx]
-    annotate_video_with_tracklets(video_in, video_out, tracks, **kwargs)
+    annotate_video_with_tracklets(video_in, video_out, tracks, pixel, **kwargs)
+
+def annotate_video_mtmc_iter(video_in, video_out, multicam_tracks, cam_idx, pixel,iter, width,font,fontsize):
+    tracks = get_tracks_by_cams(multicam_tracks)[cam_idx]
+    annotate_video_with_tracklets_iter(video_in, video_out, tracks, pixel,  font,
+                                  fontsize , iter, width)
+
 
 
 if __name__ == "__main__":

@@ -38,7 +38,7 @@ C.DEBUG_RUN = False
 C.FONT = "assets/Hack-Regular.ttf"
 
 # font size for text subscriptions
-C.FONTSIZE = 11
+C.FONTSIZE = 30
 
 ################################################################################
 # MOT (single camera tracking) config
@@ -64,11 +64,12 @@ C.MOT.REID_FP16 = False
 C.MOT.REID_BATCHSIZE = 1
 
 # object detector (yolov5s, yolov5m, yolov5l, other yolov5 versions)
-C.MOT.DETECTOR = "yolov5l"
+C.MOT.DETECTOR = "yolov5s"
 
 # classes that are kept from detection
 # only bike, car, motorbike, bus, truck classes are default (yolov5)
-C.MOT.TRACKED_CLASSES = [1, 2, 3, 5, 7]
+#C.MOT.TRACKED_CLASSES = [1, 2, 3, 5, 7]
+C.MOT.TRACKED_CLASSES = [0]
 
 # tracker to use ('deepsort' 'bytetrack_iou')
 C.MOT.TRACKER = "deepsort"
@@ -157,7 +158,7 @@ C.EXPRESS = CN()
 C.EXPRESS.CAMERAS = []
 
 # Save videos with final MTMC-matched ids for each camera
-C.EXPRESS.FINAL_VIDEO_OUTPUT = False
+C.EXPRESS.FINAL_VIDEO_OUTPUT = True
 
 ################################################################################
 # Evaluation config

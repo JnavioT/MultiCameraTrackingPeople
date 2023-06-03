@@ -1,4 +1,4 @@
-OUTPUT_DIR: "output/mot_highway"
+OUTPUT_DIR: "output/mot_highway_yolov8"
 FONTSIZE: 11
 MOT:
   VIDEO: "datasets/highway.mp4"
@@ -7,7 +7,7 @@ MOT:
   CALIBRATION: "config/examples/highway_calibration.txt"
   REID_FP16: false
   REID_BATCHSIZE: 1
-  DETECTOR: "yolov5x6"
+  DETECTOR: "yolov5s"
   TRACKER: "bytetrack_iou"
   DETECTION_MASK: "assets/highway_mask.jpg"
   SHOW: false

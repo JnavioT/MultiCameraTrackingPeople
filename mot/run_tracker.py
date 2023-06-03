@@ -6,6 +6,7 @@ import torch
 import numpy as np
 from PIL import Image
 from yacs.config import CfgNode
+import subprocess
 
 from mot.deep_sort import preprocessing
 from mot.tracklet_processing import save_tracklets, save_tracklets_csv, refine_tracklets, save_tracklets_txt
@@ -20,7 +21,7 @@ from reid.feature_extractor import FeatureExtractor
 from reid.vehicle_reid.load_model import load_model_from_opts
 
 from detection.detection import Detection
-from detection.load_detector import load_yolo
+from detection.load_detector import load_yolo, load_yolo2
 
 from tools.util import FrameRateCounter, Benchmark, Timer, parse_args
 from tools.preprocessing import create_extractor
@@ -28,6 +29,8 @@ from tools import log
 from config.defaults import get_cfg_defaults
 from config.config_tools import expand_relative_paths
 from config.verify_config import check_mot_config, global_checks
+
+import warnings
 
 MOT_OUTPUT_NAME = "mot"
 
@@ -100,7 +103,7 @@ def run_mot(cfg: CfgNode):
     ########################################
 
     # DeepSORT params
-    max_cosine_distance = 0.4
+    max_cosine_distance = 0.7
     nn_budget = None
     metric = "cosine"
 
@@ -129,12 +132,18 @@ def run_mot(cfg: CfgNode):
                                  model=reid_model)
 
     # load input video
+    #subprocess.call(['ffmpeg', '-i', cfg.MOT.VIDEO, '-c', 'libx264', '-r', '5' , '-vf', "scale=1280:720"  ,'../dataset/video.avi'])
+    
+    #hls-> ts-> mp4
+    # imageio -> ffmpeg -> 
+
     video_in = imageio.get_reader(cfg.MOT.VIDEO)
     video_meta = video_in.get_meta_data()
     video_w, video_h = video_meta["size"]
     video_frames = video_in.count_frames()
     video_fps = video_meta["fps"]
-    VIDEO_EXT = cfg.MOT.VIDEO.split(".")[-1]
+    VIDEO_EXT = cfg.MOT.VIDEO.split(".")[-1] # avi
+    #VIDEO_EXT = videoStreaming.split(".")[-1]
 
     # initialize zone matching
     if cfg.MOT.ZONE_MASK_DIR and cfg.MOT.VALID_ZONEPATHS:
@@ -155,10 +164,16 @@ def run_mot(cfg: CfgNode):
     if cfg.MOT.TRACKER == "deepsort":
         tracker = DeepsortTracker(metric, max_cosine_distance, nn_budget, n_init=3,
                                   zone_matcher=zone_matcher)
-        MIN_CONFID = 0.5
+        #A lower max_cosine_distance value will result in more 
+        #strict matching between features, while a higher value will allow for more flexibility in matching.
+        # nn_budget: This parameter controls the maximum number of previous frames that will be used to track 
+        # each object. Setting nn_budget to None means that all previous frames will be used for tracking. 
+        # However, setting nn_budget to a specific value can help to reduce computational overhead and 
+        # improve tracking performance.
+        MIN_CONFID = 0.6
     elif cfg.MOT.TRACKER == "bytetrack_iou":
         tracker = ByteTrackerIOU(video_fps, zone_matcher=zone_matcher)
-        MIN_CONFID = 0.2
+        MIN_CONFID = 0.7 # de 0.2 a 0.6 a 0.8
     else:
         raise ValueError("Tracker not implemented.")
 
@@ -224,11 +239,19 @@ def run_mot(cfg: CfgNode):
 
         benchmark.restart_timer()
 
+        # results = detector(frame)
+        # boxes = results[0].boxes
+        # res = boxes.xywh.cpu().numpy()
+        # res2 = boxes.data.cpu().numpy()
+        
         res = detector(frame).xywh[0].cpu().numpy()
+        
         benchmark.register_call("detector")
 
         # detected boxes in cx,cy,w,h format
         boxes = [t[:4] for t in res]
+        # scores = [t[4] for t in res2]
+        # classes = [t[5] for t in res2]
         scores = [t[4] for t in res]
         classes = [t[5] for t in res]
 
@@ -276,7 +299,7 @@ def run_mot(cfg: CfgNode):
         active_track_bboxes_tlwh = [tr.bboxes[-1] for tr in active_tracks]
 
         # estimate speed if possible
-        if speed_estimator:
+        if speed_estimator: ### FALSE
             for track in active_tracks:
                 # only keep bounding boxes that are not cut off / skewed
                 # because those result in inaccurate position approximations:
@@ -368,6 +391,11 @@ def run_mot(cfg: CfgNode):
                                                    f"{MOT_OUTPUT_NAME}.{VIDEO_EXT}"),
                                       final_tracks,
                                       cfg.FONT, cfg.FONTSIZE)
+        # annotate_video_with_tracklets(videoStreaming,
+        #                               os.path.join(cfg.OUTPUT_DIR,
+        #                                            f"{MOT_OUTPUT_NAME}.{VIDEO_EXT}"),
+        #                               final_tracks,
+        #                               cfg.FONT, cfg.FONTSIZE)
 
     csv_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}.csv")
     save_tracklets_csv(final_tracks, csv_save_path)
@@ -388,6 +416,7 @@ def run_mot(cfg: CfgNode):
 
 
 if __name__ == "__main__":
+    warnings.filterwarnings("ignore")
     args = parse_args("Run Multi-object tracker on a video.")
     cfg = get_cfg_defaults()
     if args.config:
@@ -406,4 +435,4 @@ if __name__ == "__main__":
     log.log_init(os.path.join(cfg.OUTPUT_DIR, args.log_filename),
                  args.log_level, not args.no_log_stdout)
 
-    run_mot(cfg)
+    run_mot(cfg)# 1 sript que ttransforme en real time el video de webcam y lo transmita 

@@ -1,0 +1,30 @@
+OUTPUT_DIR: "output/home_01"
+DEBUG_RUN: false
+FONTSIZE: 15
+MOT:
+  REID_MODEL_OPTS: "models/res-ibn/opts.yaml"
+  REID_MODEL_CKPT: "models/res-ibn/net_19.pth"
+  REID_FP16: false
+  REID_BATCHSIZE: 1
+  DETECTOR: "yolov5s"
+  TRACKER: "deepsort"
+  MIN_FRAMES: 5
+  SHOW: false
+  VIDEO_OUTPUT: true
+  ATTRIBUTE_INFER_BATCHSIZE: 1
+  REFINE: false
+MTMC:
+  CAMERA_LAYOUT: 'config/cityflow/s02_camera_layout.txt'
+  LINKAGE: 'average'
+  MIN_SIM: 0.5
+EXPRESS:
+  FINAL_VIDEO_OUTPUT: true
+  CAMERAS:
+    - "video": "datasets/city_home/validation/S02/c006/vid0_0.mp4"
+      "calibration": "datasets/city_home/validation/S02/c006/calibration.txt"
+    - "video": "datasets/city_home/validation/S02/c007/vid0_1.mp4"
+      "calibration": "datasets/city_home/validation/S02/c007/calibration.txt"
+    - "video": "datasets/city_home/validation/S02/c008/vid1_0.mp4"
+      "calibration": "datasets/city_home/validation/S02/c008/calibration.txt"
+    - "video": "datasets/city_home/validation/S02/c009/vid1_1.mp4"
+      "calibration": "datasets/city_home/validation/S02/c009/calibration.txt"

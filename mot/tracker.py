@@ -22,7 +22,7 @@ class TrackerBase:
     @property
     def tracks(self) -> Dict[int, Tracklet]:
         """Dictionary of tracks keyed by ids."""
-        return self._tracks
+        return self._tracks # guarda de manera privada tracks
 
     @property
     def active_track_ids(self) -> Set[int]:
@@ -76,7 +76,7 @@ class DeepsortTracker(TrackerBase):
         super().__init__(zone_matcher)
         self._metric = nn_matching.NearestNeighborDistanceMetric(
             metric, max_dist, nn_budget)
-        self._tracker = Tracker(self._metric, max_iou_dist, max_age, n_init)
+        self._tracker = Tracker(self._metric, max_iou_dist, max_age, n_init) # tiene variable a tracks
 
     def update(self,
                frame_num: int,

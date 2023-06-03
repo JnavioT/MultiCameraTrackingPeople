@@ -1,0 +1,26 @@
+OUTPUT_DIR: "output/ctic_labo_2sync_test0"
+DEBUG_RUN: false
+FONTSIZE: 15
+MOT:
+  REID_MODEL_OPTS: "models/res-ibn/opts.yaml"
+  REID_MODEL_CKPT: "models/res-ibn/net_19.pth"
+  REID_FP16: false
+  REID_BATCHSIZE: 1
+  DETECTOR: "yolov5n"
+  TRACKER: "deepsort"
+  MIN_FRAMES: 5
+  SHOW: false
+  VIDEO_OUTPUT: true
+  ATTRIBUTE_INFER_BATCHSIZE: 1
+  REFINE: false
+MTMC:
+  CAMERA_LAYOUT: 'config/cityflow/s02_camera_layout_ctic.txt'
+  LINKAGE: 'single'
+  MIN_SIM: 0.2
+EXPRESS:
+  FINAL_VIDEO_OUTPUT: true
+  CAMERAS:
+    - "video": "datasets/ctic_1/validation/S02/c006/ang1_v2.mp4"
+      "calibration": "datasets/ctic_1/validation/S02/c008/calibration.txt"
+    - "video": "datasets/ctic_1/validation/S02/c007/ang2_v2.mp4"
+      "calibration": "datasets/ctic_1/validation/S02/c006/calibration.txt"

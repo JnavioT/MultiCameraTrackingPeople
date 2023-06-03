@@ -13,7 +13,7 @@ def expand_relative_paths(root_cfg: CN):
     root = c.SYSTEM.ROOT_DIR
     c.OUTPUT_DIR = get_abspath(c.OUTPUT_DIR, root)
     c.FONT = get_abspath(c.FONT, root)
-    c.MOT.VIDEO = get_abspath(c.MOT.VIDEO, root)
+    #c.MOT.VIDEO = get_abspath(c.MOT.VIDEO, root)
     c.MOT.REID_MODEL_CKPT = get_abspath(c.MOT.REID_MODEL_CKPT, root)
     c.MOT.REID_MODEL_OPTS = get_abspath(c.MOT.REID_MODEL_OPTS, root)
     c.MOT.DETECTION_MASK = get_abspath(c.MOT.DETECTION_MASK, root)
@@ -37,7 +37,7 @@ def expand_relative_paths(root_cfg: CN):
         for k, v in list(it.items()):
             if k == "valid_zonepaths":
                 continue
-            it[k] = get_abspath(v, root)
+            #it[k] = get_abspath(v, root) # completa la camara con el root
 
     # expand paths in evaluation config
     c.EVAL.GROUND_TRUTHS = list(map(lambda x: get_abspath(x, root), c.EVAL.GROUND_TRUTHS))

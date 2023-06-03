@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import imageio
 import argparse
 
+import os
+
 try:
     import cv2
 except ImportError as e:
@@ -51,7 +53,7 @@ def annotate(img_pil, id_label, attributes, tx, ty, bx, by, color, font):
 
 
 class Video:
-    def __init__(self, font, fontsize=13):
+    def __init__(self, font, fontsize=20):
         cmap = plt.get_cmap("Set2")
         self.colors = [cmap(i)[:3] for i in range(cmap.N)]
         cmap2 = plt.get_cmap("hsv")
@@ -91,7 +93,7 @@ class Video:
 
 
 class DisplayVideo(Video):
-    def __init__(self, font, width=1280, height=720, fontsize=13):
+    def __init__(self, font, width=1280, height=720, fontsize=20):
         super().__init__(font, fontsize=fontsize)
         cv2.namedWindow("tracking", cv2.WINDOW_NORMAL)
         cv2.resizeWindow("tracking", width, height)
@@ -106,27 +108,32 @@ class DisplayVideo(Video):
 
 
 class FileVideo(Video):
-    def __init__(self, font, save_path, fps, codec, format="FFMPEG", mode="I", fontsize=13):
+    def __init__(self, font, save_path, fps, codec, pixelformat, format="FFMPEG", mode="I", fontsize=20):
         super().__init__(font, fontsize=fontsize)
         self.video = imageio.get_writer(save_path, format=format, mode=mode,
-                                        fps=fps, codec=codec, macro_block_size=8)
+                                        fps=fps, codec=codec, pixelformat= pixelformat, macro_block_size=8)
 
 
     def update(self, frame, track_ids, bboxes, attributes):
         frame = self.render_tracks(frame, track_ids, bboxes, attributes)
         self.video.append_data(frame)
 
+    def save(self, frame, track_ids, bboxes, attributes):
+        self.video.append_data(frame)   
+        #print(self.video.shape) 
+    
     def close(self):
         self.video.close()
 
 
-def annotate_video_with_tracklets(input_path, output_path, tracklets, font="Hack-Regular.ttf",
-                                  fontsize=13):
+def annotate_video_with_tracklets(input_path, output_path, tracklets, pixelformat, font="Hack-Regular.ttf",
+                                  fontsize=20):
+    ## Lee data procesada x run_tracker y luego crea nuevo video
     video_in = imageio.get_reader(input_path)
     video_meta = video_in.get_meta_data()
     video_out = FileVideo(
-        font, output_path, video_meta["fps"], video_meta["codec"], fontsize=fontsize)
-
+        font, output_path, video_meta["fps"], video_meta["codec"], pixelformat = pixelformat, fontsize=fontsize)
+    #print(video_meta["codec"])
     tracklets = sorted(tracklets, key=lambda tr: tr.frames[0])
     active_tracks = {}
     nxt_track = 0
@@ -178,18 +185,317 @@ def annotate_video_with_tracklets(input_path, output_path, tracklets, font="Hack
 
     video_out.close()
 
+def annotate_video_with_tracklets_iter(input_path, output_path, tracklets, pixelformat, font="Hack-Regular.ttf",
+                                  fontsize=20, count_save=0, width_frames=100):
+    ## Lee data procesada x run_tracker y luego crea nuevo video
+    video_in = imageio.get_reader(input_path)
+    video_meta = video_in.get_meta_data()
+    video_out = FileVideo(
+        font, output_path, video_meta["fps"], video_meta["codec"], pixelformat = pixelformat, fontsize=fontsize)
+    #tracklets = sorted(tracklets, key=lambda tr: tr.frames[0])
+    tracklets = sorted(tracklets, key=lambda tr: tr.frames[0])
+    # for tracklet in tracklets:
+    #     tracklet.cut_tracklet(width_frames*count_save)
+
+
+
+    #tracklets = [tracklet for tracklet in tracklets if tracklet.frames[-1] >= (100 )]
+    #tracklets = [tracklet for tracklet in tracklets  if tracklet.frames[-1] >= 100 ]
+        
+    active_tracks = {}
+    nxt_track = 0
+
+    # for i in tracklets:
+    #     print(len(i.frames))
+    #print(video_in.shape)
+
+    for frame_idx, frame in enumerate(video_in):
+        frame_idx += width_frames*count_save
+        #print(tracklets[1].frames[0])
+        # if tracklets[nxt_track].frames[0] == frame_idx:
+        #     print('hi')
+        #print(tracklets[1].frames[0] )
+        # En cada frame verifico si hay algun tracklet activo
+        while nxt_track < len(tracklets)and tracklets[nxt_track].frames[0] == frame_idx:#and tracklets[1].frames[0] == frame_idx:
+            # print(frame_idx, tracklets[0].frames[0] ) #100
+            # print(frame_idx, tracklets[1].frames[0] ) #162
+            # print("a")
+            active_tracks[nxt_track] = 0 ### 0
+            nxt_track += 1
+        #print(nxt_track)
+        #for k,v in active_tracks.items():
+            #print("b")
+            #print(k)
+        
+        track_ids, bboxes, attribs = [], [], []
+        ended_tracks = []
+        incr_tracks = []
+
+        # gather info for the current frame
+        for track_idx, ptr in active_tracks.items(): # key:track_idx, values: ptr:0
+            track = tracklets[track_idx]
+            #print(track.frames)
+            # try:
+            #     static_refined = isinstance(
+            #         next(iter(track.static_attributes.values())), int)
+            # except StopIteration:
+            # #     static_refined = True
+            static_refined = True
+
+            # print("===")
+            # print(frame_idx)
+            # print("***")
+            # print(track.frames[ptr])
+
+            if track.frames[ptr] == frame_idx:
+
+                track_ids.append(track.track_id)
+                #print('a', track.track_id)
+                bboxes.append(track.bboxes[ptr])
+
+                attr = {}
+                for k, v in track.static_attributes.items():
+                    if static_refined:
+                        attr[k] = v
+                    else:
+                        attr[k] = v[ptr]
+                for k, v in track.dynamic_attributes.items():
+                    attr[k] = v[ptr]
+                attribs.append(attr)
+
+                #print(ptr)
+                if ptr >= len(track.frames) - 1:
+                #if ptr >= (track.frames[-1] % 100 ):
+                    ended_tracks.append(track_idx)
+                else:
+                    incr_tracks.append(track_idx)
+
+        for track_idx in ended_tracks:
+            del active_tracks[track_idx]
+        for track_idx in incr_tracks:
+            active_tracks[track_idx] += 1
+
+        video_out.update(frame, track_ids, bboxes, attribs)
+
+    video_out.close()
+
+def annotate_video_with_tracklets_iter_vin(input_video, output_path, tracklets, pixelformat, font="Hack-Regular.ttf",
+                                  fontsize=20, count_save=0, width_frames=100):
+    ## Lee data procesada x run_tracker y luego crea nuevo video
+    #video_in = imageio.get_reader(input_path)
+    #video_meta = input_video.get_meta_data()
+    
+    ## video_in tiene que ser iterable
+    
+    video_out = FileVideo(
+    #    font, output_path, video_meta["fps"], video_meta["codec"], pixelformat = pixelformat, fontsize=fontsize)
+    font, output_path, 30 , "mjpeg", pixelformat = pixelformat, fontsize=fontsize)
+    #tracklets = sorted(tracklets, key=lambda tr: tr.frames[0])
+    tracklets = sorted(tracklets, key=lambda tr: tr.frames[0])
+    # for tracklet in tracklets:
+    #     tracklet.cut_tracklet(width_frames*count_save)
+
+
+
+    #tracklets = [tracklet for tracklet in tracklets if tracklet.frames[-1] >= (100 )]
+    #tracklets = [tracklet for tracklet in tracklets  if tracklet.frames[-1] >= 100 ]
+        
+    active_tracks = {}
+    nxt_track = 0
+
+    # for i in tracklets:
+    #     print(len(i.frames))
+    #print(video_in.shape)
+
+    for frame_idx, frame in enumerate(input_video):
+        frame_idx += width_frames*count_save
+        #print(tracklets[1].frames[0])
+        # if tracklets[nxt_track].frames[0] == frame_idx:
+        #     print('hi')
+        #print(tracklets[1].frames[0] )
+        # En cada frame verifico si hay algun tracklet activo
+        while nxt_track < len(tracklets)and tracklets[nxt_track].frames[0] == frame_idx:#and tracklets[1].frames[0] == frame_idx:
+            # print(frame_idx, tracklets[0].frames[0] ) #100
+            # print(frame_idx, tracklets[1].frames[0] ) #162
+            # print("a")
+            active_tracks[nxt_track] = 0 ### 0
+            nxt_track += 1
+        #print(nxt_track)
+        #for k,v in active_tracks.items():
+            #print("b")
+            #print(k)
+        
+        track_ids, bboxes, attribs = [], [], []
+        ended_tracks = []
+        incr_tracks = []
+
+        # gather info for the current frame
+        for track_idx, ptr in active_tracks.items(): # key:track_idx, values: ptr:0
+            track = tracklets[track_idx]
+            #print(track.frames)
+            # try:
+            #     static_refined = isinstance(
+            #         next(iter(track.static_attributes.values())), int)
+            # except StopIteration:
+            # #     static_refined = True
+            static_refined = True
+
+            # print("===")
+            # print(frame_idx)
+            # print("***")
+            # print(track.frames[ptr])
+
+            if track.frames[ptr] == frame_idx:
+
+                track_ids.append(track.track_id)
+                #print('a', track.track_id)
+                bboxes.append(track.bboxes[ptr])
+
+                attr = {}
+                for k, v in track.static_attributes.items():
+                    if static_refined:
+                        attr[k] = v
+                    else:
+                        attr[k] = v[ptr]
+                for k, v in track.dynamic_attributes.items():
+                    attr[k] = v[ptr]
+                attribs.append(attr)
+
+                #print(ptr)
+                if ptr >= len(track.frames) - 1:
+                #if ptr >= (track.frames[-1] % 100 ):
+                    ended_tracks.append(track_idx)
+                else:
+                    incr_tracks.append(track_idx)
+
+        for track_idx in ended_tracks:
+            del active_tracks[track_idx]
+        for track_idx in incr_tracks:
+            active_tracks[track_idx] += 1
+
+        video_out.update(frame, track_ids, bboxes, attribs)
+
+    video_out.close()
+
+def annotate_video_with_tracklets_var(input_path, output_path, tracklets, pixelformat, font="Hack-Regular.ttf",
+                                  fontsize=20, num_frames_before_end=0):
+    video_in = imageio.get_reader(input_path)
+    video_meta = video_in.get_meta_data()
+    video_out = FileVideo(
+        font, output_path, video_meta["fps"], video_meta["codec"], pixelformat=pixelformat, fontsize=fontsize)
+
+    tracklets = sorted(tracklets, key=lambda tr: tr.frames[0])
+    active_tracks = {}
+    nxt_track = 0
+
+    for frame_idx, frame in enumerate(video_in):
+        while nxt_track < len(tracklets) and tracklets[nxt_track].frames[0] == frame_idx:
+            active_tracks[nxt_track] = 1
+            nxt_track += 1
+
+        track_ids, bboxes, attribs = [], [], []
+        ended_tracks = []
+        incr_tracks = []
+
+        for track_idx, ptr in active_tracks.items():
+            track = tracklets[track_idx]
+
+            try:
+                static_refined = isinstance(
+                    next(iter(track.static_attributes.values())), int)
+            except StopIteration:
+                static_refined = True
+            print("===")
+            print(frame_idx)
+            print("***")
+            print(track.frames[ptr])
+            if (track.frames[ptr] == frame_idx) and (frame_idx <= 90): ### LINEA CRITICA
+                #print('hi')
+                #print(frame_idx)
+                track_ids.append(track.track_id)
+                bboxes.append(track.bboxes[ptr])
+
+                attr = {}
+                for k, v in track.static_attributes.items():
+                    if static_refined:
+                        attr[k] = v
+                    else:
+                        attr[k] = v[ptr]
+                for k, v in track.dynamic_attributes.items():
+                    attr[k] = v[ptr]
+                attribs.append(attr)
+
+                if ptr >= len(track.frames) - 1:
+                    ended_tracks.append(track_idx)
+                else:
+                    incr_tracks.append(track_idx)
+
+        for track_idx in ended_tracks:
+            del active_tracks[track_idx]
+        for track_idx in incr_tracks:
+            active_tracks[track_idx] += 1
+
+        video_out.update(frame, track_ids, bboxes, attribs)
+
+    video_out.close()
+
+
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="annotate video with tracklets")
-    parser.add_argument("input_video", help="video to annotate")
-    parser.add_argument("output_video", help="video output path")
-    parser.add_argument(
-        "tracklets", help="pickle file containing the tracklets")
-    parser.add_argument("--fontsize", default=13, type=int,
-                        help="font size for the annotation")
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(
+    #     description="annotate video with tracklets")
+    # parser.add_argument("input_video", help="video to annotate")
+    # parser.add_argument("output_video", help="video output path")
+    # parser.add_argument(
+    #     "tracklets", help="pickle file containing the tracklets")
+    # parser.add_argument("--fontsize", default=20, type=int,
+    #                     help="font size for the annotation")
+    # args = parser.parse_args()
 
-    tracklets = load_tracklets(args.tracklets)
-    annotate_video_with_tracklets(args.input_video, args.output_video, tracklets,
-                                  fontsize=args.fontsize)
+    #tracklets = load_tracklets(args.tracklets)
+    #annotate_video_with_tracklets(args.input_video, args.output_video, tracklets,
+    #                              fontsize=args.fontsize)
+    
+
+    #============
+
+    OUTPUT_DIR = "../output/hls_mywebcam_save_videos_display_mot_tracklets_6"
+    i=1
+    DIR_tracklets = f"../output/hls_mywebcam_save_videos_display_mot_tracklets_6/mot_{i}.pkl"
+    final_tracks = load_tracklets(DIR_tracklets)
+    annotate_video_with_tracklets_iter(os.path.join(OUTPUT_DIR,
+                                                        f"mot_online_{i}.avi"),
+                                                    os.path.join(OUTPUT_DIR,
+                                                                f"mot_{i}_2.avi"),
+                                                    final_tracks, "yuvj420p", "../assets/Hack-Regular.ttf",
+                                        20, i, 100)
+    # for i in range(4):
+    #     DIR_tracklets = f"../output/hls_mywebcam_save_videos_display_mot_tracklets_3/mot_{i}.pkl"
+    #     final_tracks = load_tracklets(DIR_tracklets)
+    #     annotate_video_with_tracklets_iter(os.path.join(OUTPUT_DIR,
+    #                                                     f"mot_online_{i}.avi"),
+    #                                                 os.path.join(OUTPUT_DIR,
+    #                                                             f"mot_{i}_2.avi"),
+    #                                                 final_tracks, "yuvj420p", "../assets/Hack-Regular.ttf",
+    #                                     20, i, 100)
+                                    #20, 10 )
+    #================
+    # annotate_video_with_tracklets_iter(os.path.join(OUTPUT_DIR,
+    #                                                 "mot_online_1.avi"),
+    #                                             os.path.join(OUTPUT_DIR,
+    #                                                         "mot_1_4.avi"),
+    #                                             final_tracks, "yuvj420p", "../assets/Hack-Regular.ttf",
+    #                                 20, 1, 100)
+    #                                 #20, 10 )
+
+    # DIR_tracklets = "../output/hls_mywebcam_save_videos_display_mot_tracklets_2/mot_1.pkl"
+    # final_tracks = load_tracklets(DIR_tracklets)
+    # OUTPUT_DIR = "../output/hls_mywebcam_save_videos_display_mot_tracklets_2"
+    # annotate_video_with_tracklets_iter(os.path.join(OUTPUT_DIR,
+    #                                                 "mot_online_1.avi"),
+    #                                             os.path.join(OUTPUT_DIR,
+    #                                                         "mot_1_3.avi"),
+    #                                             final_tracks, "yuvj420p", "../assets/Hack-Regular.ttf",
+    #                                 20, 1, 100)
+

@@ -3,6 +3,7 @@
 *.pt
 *.zip
 *.tar.gz
+*.pt
 datasets/*/
 datasets/id_split*
 datasets/*.csv

@@ -1,0 +1,27 @@
+OUTPUT_DIR: "output/webcam_02_cameras_concurrent_threads_Inf_1"
+DEBUG_RUN: false
+FONTSIZE: 15
+MOT:
+  REID_MODEL_OPTS: "models/res-ibn/opts.yaml"
+  REID_MODEL_CKPT: "models/res-ibn/net_19.pth"
+  REID_FP16: false
+  REID_BATCHSIZE: 1
+  DETECTOR: "yolov5n"
+  TRACKER: "deepsort"
+  MIN_FRAMES: 5
+  SHOW: false
+  VIDEO_OUTPUT: false
+  ONLINE_VIDEO_OUTPUT: true
+  ATTRIBUTE_INFER_BATCHSIZE: 1
+  REFINE: false
+MTMC:
+  CAMERA_LAYOUT: 'config/cityflow/s02_camera_layout_02cam.txt'
+  LINKAGE: 'average'
+  MIN_SIM: 0.3
+EXPRESS:
+  FINAL_VIDEO_OUTPUT: true
+  CAMERAS:
+    - "video": "video0" 
+    - "video": "video1"
+
+
