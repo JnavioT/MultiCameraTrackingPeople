@@ -3,6 +3,7 @@ import os
 import time
 
 from yacs.config import CfgNode
+import subprocess
 
 from mot.run_tracker_hls import run_mot, MOT_OUTPUT_NAME
 from mtmc.run_mtmc import run_mtmc
@@ -75,6 +76,8 @@ def run_express_mtmc(cfg: CfgNode):
         i = 0
         #for i in range(8): # cambiar por un True : si existe file mot_0.pkl : aumenta a mot_1.pkl
         while True:
+            if i>=3: 
+                break
             while not (os.path.isfile(os.path.join(cam_dirs[1],f"{MOT_OUTPUT_NAME}_{i}.pkl"))
                 and os.path.isfile(os.path.join(cam_dirs[0],f"{MOT_OUTPUT_NAME}_{i}.pkl"))):
                 time.sleep(1)
@@ -111,8 +114,14 @@ def run_express_mtmc(cfg: CfgNode):
                     video_ext = "avi"
                     video_out = os.path.join(
                         cam_dir, f"{MTMC_OUTPUT_NAME}_{j}_{i}.{video_ext}")
+                    ouput_hls = os.path.join(
+                        cam_dir, f"hls_{j}_{i}.m3u8")
                     annotate_video_mtmc_iter(video_in, video_out, mtracks,
                                             j, "yuvj420p",i,100,font=cfg.FONT, fontsize=cfg.FONTSIZE)
+                    #mtmc_0_0
+                    subprocess.call(['ffmpeg', '-i',  video_out, '-c', 'libx264', '-preset', 'slow' , \
+                     '-b', '500k', '-b', '128k', '-f', 'hls' ,  \
+                     '-hls_list_size', '0','-hls_time', '2', ouput_hls])
                     log.info(f"Express: video cam{j}_iter{i} saved.")
             i+=1
         

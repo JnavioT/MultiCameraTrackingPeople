@@ -243,7 +243,7 @@ def run_mot(cfg: CfgNode):
         if cfg.DEBUG_RUN and frame_num >= 80:
             break
 
-        if frame_num >=1501:
+        if frame_num >=301:
             break
         benchmark.restart_timer()
         if frame_num % 1 == 0 :  

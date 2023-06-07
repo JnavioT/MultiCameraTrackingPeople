@@ -1,4 +1,4 @@
-OUTPUT_DIR: "output/webcam_02_cameras_concurrent_threads_Inf_1"
+OUTPUT_DIR: "output/webcam_02_cameras_concurrent_threads_m3u8_5"
 DEBUG_RUN: false
 FONTSIZE: 15
 MOT:
