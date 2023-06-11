@@ -14,6 +14,8 @@ from tools import log
 from tools.util import parse_args
 from evaluate.run_evaluate import run_evaluation
 
+from persistqueue import Queue
+
 MTMC_TRACKLETS_NAME = "mtmc_tracklets"
 
 ########################################
@@ -50,8 +52,16 @@ def run_mtmc(cfg: CN):
         
     # load the pickled lists of tracks per camera
     tracks = []
+    element = None 
+
     for path in cfg.MTMC.PICKLED_TRACKLETS:
-        tracks.append(load_pickle(path))
+        q = Queue(path)
+        if not q.empty():
+            element = q.get()
+            tracks.append(element)
+            q.task_done()
+            print(element[0].frames)
+        #tracks.append(load_pickle(path))
         log.info("Tracklets loaded for camera %s: %s in total.",
                  len(tracks) - 1, len(tracks[-1]))
 
@@ -99,10 +109,10 @@ if __name__ == "__main__":
     for i, pkl_path in enumerate(cfg.MTMC.PICKLED_TRACKLETS):
         mtmc_pkl_path = os.path.join(cfg.OUTPUT_DIR, f"{i}_{os.path.split(pkl_path)[1]}")
         pkl_paths.append(mtmc_pkl_path)
-    # csv_paths = [pth.split(".")[0] + ".csv" for pth in pkl_paths]
+    csv_paths = [pth.split(".")[0] + ".csv" for pth in pkl_paths]
     # txt_paths = [pth.split(".")[0] + ".txt" for pth in pkl_paths]
     save_tracklets_per_cam(mtracks, pkl_paths)
-    # save_tracklets_csv_per_cam(mtracks, csv_paths)
+    save_tracklets_csv_per_cam(mtracks, csv_paths)
     # save_tracklets_txt_per_cam(mtracks, txt_paths)
 
     log.info("Results saved.")

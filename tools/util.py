@@ -6,7 +6,8 @@ import numpy as np
 
 def parse_args(description):
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--config", help="config yaml file")
+    parser.add_argument("--config",help="config yaml file")
+    #parser.add_argument("--config",default="examples/mot_1camera_video.yaml" ,help="config yaml file")
     parser.add_argument("--log_level", default="info", help="logging level")
     parser.add_argument("--log_filename", default="log.txt",
                         help="log file under output dir")

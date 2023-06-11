@@ -18,8 +18,6 @@ from tools import log
 import threading
 import concurrent.futures
 
-from persistqueue import Queue
-
 MTMC_OUTPUT_NAME = "mtmc"
 
 def run_express_mtmc(cfg: CfgNode):
@@ -56,8 +54,6 @@ def run_express_mtmc(cfg: CfgNode):
             log.error(
                 f"Error in the express config of camera {len(mot_configs) - 1}.")
             return None
-        queue_paths = [os.path.join(
-                 path, "db") for path in cam_dirs]
 
     # run MOT in all cameras
     # for mot_conf in mot_configs:
@@ -80,28 +76,24 @@ def run_express_mtmc(cfg: CfgNode):
         i = 0
         #for i in range(8): # cambiar por un True : si existe file mot_0.pkl : aumenta a mot_1.pkl
         while True:
-            print('aaaaaaaaaaaaaaaaaaaaaaaaaaa')
             if i>=3: 
                 break
-            #si tamaño de cola > 1 queue = Queue(os.path.join(cfg.OUTPUT_DIR, f"db"))
-
-            while not (os.path.isfile(os.path.join(cam_dirs[1],f"queue_created{i}.txt"))
-            and os.path.isfile(os.path.join(cam_dirs[0],f"queue_created{i}.txt"))):
+            while not (os.path.isfile(os.path.join(cam_dirs[1],f"{MOT_OUTPUT_NAME}_{i}.pkl"))
+                and os.path.isfile(os.path.join(cam_dirs[0],f"{MOT_OUTPUT_NAME}_{i}.pkl"))):
                 time.sleep(1)
-            # pickle_paths = [os.path.join(
-            #     path, "{MOT_OUTPUT_NAME}_{i}.pkl") for path in cam_dirs]
+            pickle_paths = [os.path.join(
+                path, f"{MOT_OUTPUT_NAME}_{i}.pkl") for path in cam_dirs]
             mtmc_cfg = cfg.clone()
             mtmc_cfg.defrost()
-            #mtmc_cfg.MTMC.PICKLED_TRACKLETS = pickle_paths
-            mtmc_cfg.MTMC.PICKLED_TRACKLETS = queue_paths
+            mtmc_cfg.MTMC.PICKLED_TRACKLETS = pickle_paths
             mtmc_cfg.freeze()
-            print('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
             mtracks = run_mtmc(mtmc_cfg) # se puede paralelizar para cada camara pq lo hace serial
 
             log.info("Express: Running MTMC on all cameras finished. Saving final results ...")
 
             # save single cam tracks
-            final_pickle_paths = [os.path.join(d, f"{MTMC_OUTPUT_NAME}_{i}.pkl") for d in cam_dirs]
+            final_pickle_paths = [os.path.join(
+                d, f"{MTMC_OUTPUT_NAME}_{i}.pkl") for d in cam_dirs]
             # final_csv_paths = [os.path.join(
             #     d, f"{MTMC_OUTPUT_NAME}_{i}.csv") for d in cam_dirs]
             # final_txt_paths = [os.path.join(
@@ -127,14 +119,17 @@ def run_express_mtmc(cfg: CfgNode):
                     annotate_video_mtmc_iter(video_in, video_out, mtracks,
                                             j, "yuvj420p",i,NUM_FRAMES_LOOP,font=cfg.FONT, fontsize=cfg.FONTSIZE)
                     #mtmc_0_0
-                    # subprocess.call([
-                    #         'ffmpeg', '-i', video_out,
-                    #         '-c:v', 'libx264', '-preset', 'slow', '-crf', '23',
-                    #         '-c:a', 'aac', '-b:a', '128k',
-                    #         '-vf', 'scale=-2:720',
-                    #         '-hls_list_size', '0', '-hls_time', '2',
-                    #         ouput_hls
-                    #     ])
+                    # subprocess.call(['ffmpeg', '-i',  video_out, '-c', 'libx264', '-preset', 'slow' , \
+                    #  '-b', '500k', '-b', '128k', '-f', 'hls' ,  \
+                    #  '-hls_list_size', '0','-hls_time', '2', ouput_hls])
+                    subprocess.call([
+                            'ffmpeg', '-i', video_out,
+                            '-c:v', 'libx264', '-preset', 'slow', '-crf', '23',
+                            '-c:a', 'aac', '-b:a', '128k',
+                            '-vf', 'scale=-2:720',
+                            '-hls_list_size', '0', '-hls_time', '2',
+                            ouput_hls
+                        ])
                     log.info(f"Express: video cam{j}_iter{i} saved.")
             i+=1
         

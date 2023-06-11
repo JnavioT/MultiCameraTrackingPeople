@@ -29,11 +29,8 @@ from config.defaults import get_cfg_defaults
 from config.config_tools import expand_relative_paths
 from config.verify_config import check_mot_config, global_checks
 
-from persistqueue import Queue
-
 MOT_OUTPUT_NAME = "mot"
-NUM_FRAMES_LOOP = 100
-
+NUM_FRAMES_LOOP = 500
 
 def filter_boxes(boxes, scores, classes, good_classes, min_confid=0.5, mask=None):
     """Filter the detected boxes by confidence scores, classes and location.
@@ -131,9 +128,8 @@ def run_mot(cfg: CfgNode):
     reid_model.eval()
     extractor = create_extractor(FeatureExtractor, batch_size=cfg.MOT.REID_BATCHSIZE,
                                  model=reid_model)
+
     
-    queue = Queue(os.path.join(cfg.OUTPUT_DIR, f"db"))
-        
     # newName = name.split('.')[0] + '.avi'
     # videoStreaming =  parent_path+'/'+newName
     # subprocess.call(['ffmpeg', '-i', cfg.MOT.VIDEO, '-c', 'libx265', '-r', '5' , '-vf', "scale=1280:720"  , videoStreaming])
@@ -247,7 +243,7 @@ def run_mot(cfg: CfgNode):
         if cfg.DEBUG_RUN and frame_num >= 80:
             break
 
-        if frame_num >=301:
+        if frame_num >=1501:
             break
         benchmark.restart_timer()
         if frame_num % 1 == 0 :  
@@ -374,6 +370,11 @@ def run_mot(cfg: CfgNode):
             for track in final_tracks:
                 track.compute_mean_feature()
                 track.features = []
+                ##
+                # track.frames = []
+                # # bounding boxes in tlwh format
+                # track.bboxes = []
+
 
             csv_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.csv")
             save_tracklets_csv(final_tracks, csv_save_path)
@@ -383,10 +384,6 @@ def run_mot(cfg: CfgNode):
 
             pkl_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.pkl")
             save_tracklets(final_tracks, pkl_save_path)
-            queue.put(final_tracks)
-            # Signal the completion of queue creation by creating a flag file
-            with open(os.path.join(cfg.OUTPUT_DIR, f"queue_created{count_save}.txt"), 'w') as flag_file:
-                flag_file.write("Queue and database created.")
 
             # if len(cfg.EVAL.GROUND_TRUTHS) == 1:
             #     cfg.defrost()

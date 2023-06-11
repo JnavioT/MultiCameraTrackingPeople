@@ -5,6 +5,32 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Debug run_express_mtmc_hls.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/mtmc/run_express_mtmc_hls.py",
+            "console": "integratedTerminal",
+            "args": [
+              "--config",
+              "cityflow/express_hls_02_cam.yaml"
+            ],
+            "purpose": ["debug-in-terminal"]
+          },
+
+        {
+            "name": "Python: Debug run_tracker.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/mot/run_tracker.py",
+            "console": "integratedTerminal",
+            "args": [
+              "--config",
+              "examples/mot_1camera_video.yaml"
+            ],
+            "purpose": ["debug-in-terminal"]
+          },
+
+        {
             "name": "Python: Remote Attach",
             "type": "python",
             "request": "attach",
@@ -18,7 +44,7 @@
                     "remoteRoot": "."
                 }
             ],
-            "justMyCode": true
+            "justMyCode": true,
         }
     ]
 }

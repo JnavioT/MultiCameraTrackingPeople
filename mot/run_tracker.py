@@ -418,19 +418,21 @@ def run_mot(cfg: CfgNode):
 if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     args = parse_args("Run Multi-object tracker on a video.")
+    #args.add_argument("--config examples/mot_1camera_video.yaml")
     cfg = get_cfg_defaults()
     if args.config:
         cfg.merge_from_file(os.path.join(cfg.SYSTEM.CFG_DIR, args.config))
     cfg = expand_relative_paths(cfg)
     cfg.freeze()
 
+    print(global_checks["OUTPUT_DIR"](cfg.OUTPUT_DIR))
     # initialize output directory and logging
-    if not global_checks["OUTPUT_DIR"](cfg.OUTPUT_DIR):
-        log.error(
-            "Invalid param value in: OUTPUT_DIR. Provide an absolute path to a directory, whose parent exists.")
-        sys.exit(2)
-    if not os.path.exists(cfg.OUTPUT_DIR):
-        os.makedirs(cfg.OUTPUT_DIR)
+    # if not global_checks["OUTPUT_DIR"](cfg.OUTPUT_DIR):
+    #     log.error(
+    #         "Invalid param value in: OUTPUT_DIR. Provide an absolute path to a directory, whose parent exists.")
+    #     sys.exit(2)
+    # if not os.path.exists(cfg.OUTPUT_DIR):
+    #     os.makedirs(cfg.OUTPUT_DIR)
 
     log.log_init(os.path.join(cfg.OUTPUT_DIR, args.log_filename),
                  args.log_level, not args.no_log_stdout)
