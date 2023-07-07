@@ -32,7 +32,9 @@ from config.verify_config import check_mot_config, global_checks
 from persistqueue import Queue
 
 MOT_OUTPUT_NAME = "mot"
+MAX_NUM_FRAME = 300
 NUM_FRAMES_LOOP = 100
+
 
 
 def filter_boxes(boxes, scores, classes, good_classes, min_confid=0.5, mask=None):
@@ -132,7 +134,7 @@ def run_mot(cfg: CfgNode):
     extractor = create_extractor(FeatureExtractor, batch_size=cfg.MOT.REID_BATCHSIZE,
                                  model=reid_model)
     
-    queue = Queue(os.path.join(cfg.OUTPUT_DIR, f"db"))
+    
         
     # newName = name.split('.')[0] + '.avi'
     # videoStreaming =  parent_path+'/'+newName
@@ -247,7 +249,7 @@ def run_mot(cfg: CfgNode):
         if cfg.DEBUG_RUN and frame_num >= 80:
             break
 
-        if frame_num >=301:
+        if frame_num >MAX_NUM_FRAME:
             break
         benchmark.restart_timer()
         if frame_num % 1 == 0 :  
@@ -375,14 +377,16 @@ def run_mot(cfg: CfgNode):
                 track.compute_mean_feature()
                 track.features = []
 
-            csv_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.csv")
-            save_tracklets_csv(final_tracks, csv_save_path)
+            # csv_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.csv")
+            # save_tracklets_csv(final_tracks, csv_save_path)
 
             # txt_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.txt")
             # save_tracklets_txt(final_tracks, txt_save_path)
 
-            pkl_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.pkl")
-            save_tracklets(final_tracks, pkl_save_path)
+            # pkl_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.pkl")
+            # save_tracklets(final_tracks, pkl_save_path)
+
+            queue = Queue(os.path.join(cfg.OUTPUT_DIR, f"db"))
             queue.put(final_tracks)
             # Signal the completion of queue creation by creating a flag file
             with open(os.path.join(cfg.OUTPUT_DIR, f"queue_created{count_save}.txt"), 'w') as flag_file:

@@ -1,6 +1,7 @@
 import os
 import sys
 import pickle
+import time
 
 from yacs.config import CfgNode as CN
 
@@ -49,21 +50,33 @@ def run_mtmc(cfg: CN):
         log.error("Number of pickled tracklets (%s) != number of cameras (%s)",
                   len(cfg.MTMC.PICKLED_TRACKLETS), cams.n_cams)
         sys.exit(1)
+
+    # tracks = []
+    # for path in cfg.MTMC.PICKLED_TRACKLETS:
+    #     tracks.append(load_pickle(path))
+    #     log.info("Tracklets loaded for camera %s: %s in total.",
+    #              len(tracks) - 1, len(tracks[-1]))
         
     # load the pickled lists of tracks per camera
+    #tracks = []
+    queues = [Queue(path) for path in cfg.MTMC.PICKLED_TRACKLETS]
+    #tracks = [queue.get() for queue in queues if not queue.empty()]
     tracks = []
-    element = None 
-
-    for path in cfg.MTMC.PICKLED_TRACKLETS:
-        q = Queue(path)
-        if not q.empty():
-            element = q.get()
-            tracks.append(element)
-            q.task_done()
-            print(element[0].frames)
-        #tracks.append(load_pickle(path))
-        log.info("Tracklets loaded for camera %s: %s in total.",
-                 len(tracks) - 1, len(tracks[-1]))
+    for queue in queues:
+        element = queue.get()
+        tracks.append(element)
+        queue.task_done()
+    log.info("Tracklets loaded for camera %s: %s in total.", len(tracks) - 1, len(tracks[-1]))
+    # for path in cfg.MTMC.PICKLED_TRACKLETS:
+    #     q = Queue(path)
+    #     if not q.empty():
+    #         element = q.get()
+    #         tracks.append(element)
+    #         q.task_done()
+    #         print(element[0].frames)
+    #     #tracks.append(load_pickle(path))
+    #     log.info("Tracklets loaded for camera %s: %s in total.",
+    #              len(tracks) - 1, len(tracks[-1]))
 
     for cam_tracks in tracks:
         for track in cam_tracks:

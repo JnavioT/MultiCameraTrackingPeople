@@ -1,4 +1,4 @@
-OUTPUT_DIR: "output/hls_mywebcam_queue_0906"
+OUTPUT_DIR: "output/hls_mywebcam_queue_29_06"
 FONTSIZE: 20
 MOT:
   VIDEO: "video0"

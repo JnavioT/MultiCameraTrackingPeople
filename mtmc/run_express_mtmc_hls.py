@@ -5,7 +5,7 @@ import time
 from yacs.config import CfgNode
 import subprocess
 
-from mot.run_tracker_hls import run_mot, MOT_OUTPUT_NAME, NUM_FRAMES_LOOP
+from mot.run_tracker_hls import run_mot, MOT_OUTPUT_NAME, NUM_FRAMES_LOOP,MAX_NUM_FRAME
 from mtmc.run_mtmc import run_mtmc
 from mtmc.output import save_tracklets_per_cam, save_tracklets_csv_per_cam, save_tracklets_txt_per_cam, annotate_video_mtmc, annotate_video_mtmc_iter
 from evaluate.run_evaluate import run_evaluation
@@ -21,6 +21,7 @@ import concurrent.futures
 from persistqueue import Queue
 
 MTMC_OUTPUT_NAME = "mtmc"
+boolean_queue = False
 
 def run_express_mtmc(cfg: CfgNode):
     """Run Express MTMC on a given config."""
@@ -80,11 +81,17 @@ def run_express_mtmc(cfg: CfgNode):
         i = 0
         #for i in range(8): # cambiar por un True : si existe file mot_0.pkl : aumenta a mot_1.pkl
         while True:
-            print('aaaaaaaaaaaaaaaaaaaaaaaaaaa')
-            if i>=3: 
+            
+            if i>=(MAX_NUM_FRAME/NUM_FRAMES_LOOP): 
                 break
-            #si tamaño de cola > 1 queue = Queue(os.path.join(cfg.OUTPUT_DIR, f"db"))
 
+            #si tamaño de cola > 1 queue = Queue(os.path.join(cfg.OUTPUT_DIR, f"db"))
+            #queues = [Queue(path) for path in queue_paths]
+            # for queue in queues:
+            #     while queue.empty():
+            #         time.sleep(1)
+            #     else:
+            #         print("*******************************************")
             while not (os.path.isfile(os.path.join(cam_dirs[1],f"queue_created{i}.txt"))
             and os.path.isfile(os.path.join(cam_dirs[0],f"queue_created{i}.txt"))):
                 time.sleep(1)
@@ -95,18 +102,18 @@ def run_express_mtmc(cfg: CfgNode):
             #mtmc_cfg.MTMC.PICKLED_TRACKLETS = pickle_paths
             mtmc_cfg.MTMC.PICKLED_TRACKLETS = queue_paths
             mtmc_cfg.freeze()
-            print('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
             mtracks = run_mtmc(mtmc_cfg) # se puede paralelizar para cada camara pq lo hace serial
 
             log.info("Express: Running MTMC on all cameras finished. Saving final results ...")
 
             # save single cam tracks
-            final_pickle_paths = [os.path.join(d, f"{MTMC_OUTPUT_NAME}_{i}.pkl") for d in cam_dirs]
+            ####final_pickle_paths = [os.path.join(d, f"{MTMC_OUTPUT_NAME}_{i}.pkl") for d in cam_dirs]
             # final_csv_paths = [os.path.join(
             #     d, f"{MTMC_OUTPUT_NAME}_{i}.csv") for d in cam_dirs]
             # final_txt_paths = [os.path.join(
             #     d, f"{MTMC_OUTPUT_NAME}_{i}.txt") for d in cam_dirs]
-            save_tracklets_per_cam(mtracks, final_pickle_paths)
+            
+            ####save_tracklets_per_cam(mtracks, final_pickle_paths)
             # save_tracklets_txt_per_cam(mtracks, final_txt_paths)
             # save_tracklets_csv_per_cam(mtracks, final_csv_paths)
             
@@ -123,18 +130,18 @@ def run_express_mtmc(cfg: CfgNode):
                     video_out = os.path.join(
                         cam_dir, f"{MTMC_OUTPUT_NAME}_{j}_{i}.{video_ext}")
                     ouput_hls = os.path.join(
-                        cam_dir, f"hls_{j}_{i}.m3u8")
+                        cam_dir, f"hls_{j}.m3u8")
                     annotate_video_mtmc_iter(video_in, video_out, mtracks,
                                             j, "yuvj420p",i,NUM_FRAMES_LOOP,font=cfg.FONT, fontsize=cfg.FONTSIZE)
                     #mtmc_0_0
-                    # subprocess.call([
-                    #         'ffmpeg', '-i', video_out,
-                    #         '-c:v', 'libx264', '-preset', 'slow', '-crf', '23',
-                    #         '-c:a', 'aac', '-b:a', '128k',
-                    #         '-vf', 'scale=-2:720',
-                    #         '-hls_list_size', '0', '-hls_time', '2',
-                    #         ouput_hls
-                    #     ])
+                    subprocess.call([
+                            'ffmpeg', '-i', video_out,
+                            '-c:v', 'libx264', '-preset', 'slow', '-crf', '23',
+                            '-c:a', 'aac', '-b:a', '128k',
+                            '-vf', 'scale=-2:720',
+                            '-hls_list_size', '0', '-hls_time', '10',
+                            ouput_hls
+                        ])
                     log.info(f"Express: video cam{j}_iter{i} saved.")
             i+=1
         
@@ -143,18 +150,20 @@ def run_express_mtmc(cfg: CfgNode):
     # Create two threads, one for each loop
     thread1 = threading.Thread(target=loop1)
     thread2 = threading.Thread(target=loop2)
-    #thread3 = threading.Thread(target=loop3)
-    future = concurrent.futures.Future()
-    t = threading.Thread(target=lambda: future.set_result(loop3()))
 
+    future = concurrent.futures.Future()
+    thread3 = threading.Thread(target=lambda: future.set_result(loop3()))
     # Start both threads
     thread1.start()
     thread2.start()
-    t.start()
+    thread3.start()
     # Wait for both threads to finish
     thread1.join()
     thread2.join()
-    t.join()
+    thread3.join()
+    
+    
+    
     mtracks = future.result()
 
     # if cfg.EXPRESS.FINAL_VIDEO_OUTPUT:
