@@ -101,7 +101,13 @@ def mtmc_clustering(tracks: List[List[Tracklet]],
                 track.global_end = track.frames[-1] / cams.fps[i] / cams.scales[i] + cams.offset[i]
             all_tracks.append(track)
     n = len(all_tracks)
-
+    log.info("All tracks ...")
+    print(all_tracks)
+    #print([MulticamTracklet(0, [all_tracks], len(tracks))])
+    if len(all_tracks)==0:
+        log.warning("No tracks available for multi-camera tracklet clustering.")
+        return [MulticamTracklet(0, [all_tracks], len(tracks))]
+    
     log.info("Starting clustering of %s tracks, precomputing compatibility and similarity matrices ...", n)
     log_start_time = time.time()
 
@@ -185,5 +191,5 @@ def mtmc_clustering(tracks: List[List[Tracklet]],
     log_total_time = round(time.time() - log_start_time, 3)
     log.info(
         "mtmc clustering took %s seconds: %s final tracks.", log_total_time, len(mtracks))
-
+    
     return mtracks

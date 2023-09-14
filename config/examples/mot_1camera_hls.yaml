@@ -1,15 +1,14 @@
-OUTPUT_DIR: "output/hls_mywebcam_queue_29_06"
+OUTPUT_DIR: "output/hls_mywebcam_imageio_20_07_1"
 FONTSIZE: 20
 MOT:
-  VIDEO: "video0"
+  VIDEO: "0"
   REID_MODEL_OPTS: "models/res-ibn/opts.yaml"
   REID_MODEL_CKPT: "models/res-ibn/net_19.pth"
   #CALIBRATION: "config/examples/highway_calibration.txt"
   REID_FP16: false
   REID_BATCHSIZE: 1
-  DETECTOR: "yolov5s"
+  DETECTOR: "yolov5n"
   TRACKER: "deepsort"
-  DETECTION_MASK: "assets/highway_mask.jpg"
   ONLINE_VIDEO_OUTPUT: true
   SHOW: false
   VIDEO_OUTPUT: true

@@ -4,12 +4,10 @@
 *.zip
 *.tar.gz
 *.pt
-datasets/*/
-datasets/id_split*
-datasets/*.csv
-output/*
-output_save/*
-models/*
-mot/deep_sort_orig/
+datasets
+output
+output_save
+models
+detection/ultralytics
 .idea
 __py*

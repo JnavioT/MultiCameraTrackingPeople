@@ -1,11 +1,15 @@
 import sys
 import os
 import time
+import torch
+import gc
 
 from yacs.config import CfgNode
 import subprocess
 
-from mot.run_tracker_hls import run_mot, MOT_OUTPUT_NAME, NUM_FRAMES_LOOP,MAX_NUM_FRAME
+from PIL import Image
+
+from mot.run_tracker_hls_optim import run_mot, MOT_OUTPUT_NAME, NUM_FRAMES_LOOP,MAX_NUM_FRAME
 from mtmc.run_mtmc import run_mtmc
 from mtmc.output import save_tracklets_per_cam, save_tracklets_csv_per_cam, save_tracklets_txt_per_cam, annotate_video_mtmc, annotate_video_mtmc_iter
 from evaluate.run_evaluate import run_evaluation
@@ -13,6 +17,25 @@ from config.defaults import get_cfg_defaults
 from config.config_tools import expand_relative_paths
 from config.verify_config import check_express_config, global_checks, check_mot_config
 from tools.util import parse_args
+from tools import log
+
+from mot.deep_sort import preprocessing
+from mot.tracklet_processing import save_tracklets, save_tracklets_csv, refine_tracklets, save_tracklets_txt
+from mot.tracker import DeepsortTracker, ByteTrackerIOU
+from mot.video_output import FileVideo, DisplayVideo, annotate_video_with_tracklets, annotate_video_with_tracklets_iter
+from mot.zones import ZoneMatcher
+from mot.projection_3d import Projector
+from mot.attributes import AttributeExtractorMixed, SpeedEstimator
+from evaluate.run_evaluate import run_evaluation
+
+from detection.detection import Detection
+from detection.load_detector import load_yolo
+
+from reid.feature_extractor import FeatureExtractor
+from reid.vehicle_reid.load_model import load_model_from_opts
+
+from tools.util import FrameRateCounter, Benchmark, Timer, parse_args
+from tools.preprocessing import create_extractor
 from tools import log
 
 import threading
@@ -24,6 +47,44 @@ MTMC_OUTPUT_NAME = "mtmc"
 boolean_queue = False
 
 def run_express_mtmc(cfg: CfgNode):
+
+    #Load models
+    
+    # free resources
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    ########################################
+    # Loading models, initialization
+    ########################################
+
+    if len(cfg.SYSTEM.GPU_IDS) == 0:
+        device = torch.device("cpu")
+    else:
+        gpu_id = min(map(int, cfg.SYSTEM.GPU_IDS))
+        if gpu_id >= torch.cuda.device_count():
+            log.error(
+                f"Gpu id {gpu_id} is higher than the number of cuda GPUs available ({torch.cuda.device_count()}).")
+            return None
+        device = torch.device(f"cuda:{gpu_id}")
+
+    # initialize reid model
+    reid_model = load_model_from_opts(cfg.MOT.REID_MODEL_OPTS,
+                                      ckpt=cfg.MOT.REID_MODEL_CKPT,
+                                      remove_classifier=True)
+    if cfg.MOT.REID_FP16:
+        reid_model.half()
+    reid_model.to(device)
+    reid_model.eval()
+    extractor = create_extractor(FeatureExtractor, batch_size=cfg.MOT.REID_BATCHSIZE,
+                                 model=reid_model)
+    
+    # load detector
+    detector = load_yolo(cfg.MOT.DETECTOR)
+    detector.to(device)
+
+
+    ######################################################## old
     """Run Express MTMC on a given config."""
     if not check_express_config(cfg):
         return None
@@ -65,10 +126,10 @@ def run_express_mtmc(cfg: CfgNode):
     #     run_mot(mot_conf) # hace correr run_mot en cada config con cada salida
 
     def loop1():
-        run_mot(mot_configs[0])
+        run_mot(mot_configs[0], detector, extractor)
 
     def loop2():
-        run_mot(mot_configs[1])
+        run_mot(mot_configs[1], detector, extractor)
 
 
     log.info("Express: Running MOT on all cameras finished. Running MTMC...")
@@ -117,7 +178,7 @@ def run_express_mtmc(cfg: CfgNode):
             # save_tracklets_txt_per_cam(mtracks, final_txt_paths)
             # save_tracklets_csv_per_cam(mtracks, final_csv_paths)
             
-            if cfg.EXPRESS.FINAL_VIDEO_OUTPUT:
+            if cfg.EXPRESS.FINAL_VIDEO_OUTPUT and mtracks != -1:
                 for j, cam_dir in enumerate(cam_dirs): # lo hace serial pero podria ser paralelo
                         #['C:\\Users\\JOSE\\CTIC\\vehicle_mtmc\\output\\webcam_02_cameras\\0_video0', 
                     # 'C:\\Users\\JOSE\\CTIC\\vehicle_mtmc\\output\\webcam_02_cameras\\1_video1']
@@ -129,20 +190,22 @@ def run_express_mtmc(cfg: CfgNode):
                     video_ext = "avi"
                     video_out = os.path.join(
                         cam_dir, f"{MTMC_OUTPUT_NAME}_{j}_{i}.{video_ext}")
-                    ouput_hls = os.path.join(
-                        cam_dir, f"hls_{j}.m3u8")
+                    
                     annotate_video_mtmc_iter(video_in, video_out, mtracks,
                                             j, "yuvj420p",i,NUM_FRAMES_LOOP,font=cfg.FONT, fontsize=cfg.FONTSIZE)
                     #mtmc_0_0
-                    subprocess.call([
-                            'ffmpeg', '-i', video_out,
-                            '-c:v', 'libx264', '-preset', 'slow', '-crf', '23',
-                            '-c:a', 'aac', '-b:a', '128k',
-                            '-vf', 'scale=-2:720',
-                            '-hls_list_size', '0', '-hls_time', '10',
-                            ouput_hls
-                        ])
-                    log.info(f"Express: video cam{j}_iter{i} saved.")
+
+                    # ouput_hls = os.path.join(
+                    #     cam_dir, f"hls_{j}.m3u8")
+                    # subprocess.call([
+                    #         'ffmpeg', '-i', video_out,
+                    #         '-c:v', 'libx264', '-preset', 'slow', '-crf', '23',
+                    #         '-c:a', 'aac', '-b:a', '128k',
+                    #         '-vf', 'scale=-2:720',
+                    #         '-hls_list_size', '0', '-hls_time', '10',
+                    #         ouput_hls
+                    #     ])
+                    # log.info(f"Express: video cam{j}_iter{i} saved.")
             i+=1
         
     
@@ -161,8 +224,6 @@ def run_express_mtmc(cfg: CfgNode):
     thread1.join()
     thread2.join()
     thread3.join()
-    
-    
     
     mtracks = future.result()
 

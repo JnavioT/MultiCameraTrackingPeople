@@ -62,11 +62,12 @@ def run_mtmc(cfg: CN):
     queues = [Queue(path) for path in cfg.MTMC.PICKLED_TRACKLETS]
     #tracks = [queue.get() for queue in queues if not queue.empty()]
     tracks = []
+    n_tracks = 0
     for queue in queues:
         element = queue.get()
         tracks.append(element)
         queue.task_done()
-    log.info("Tracklets loaded for camera %s: %s in total.", len(tracks) - 1, len(tracks[-1]))
+        log.info("Tracklets loaded for camera %s: %s in total.", len(tracks) - 1, len(tracks[-1]))
     # for path in cfg.MTMC.PICKLED_TRACKLETS:
     #     q = Queue(path)
     #     if not q.empty():
@@ -77,6 +78,10 @@ def run_mtmc(cfg: CN):
     #     #tracks.append(load_pickle(path))
     #     log.info("Tracklets loaded for camera %s: %s in total.",
     #              len(tracks) - 1, len(tracks[-1]))
+    print(tracks)
+    print(len(tracks))
+    if len(tracks[0]) == 0 and len(tracks[1]) == 0 :
+        return -1
 
     for cam_tracks in tracks:
         for track in cam_tracks:

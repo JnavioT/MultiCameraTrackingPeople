@@ -1,4 +1,4 @@
-OUTPUT_DIR: "output/webcam_02_cameras_concurrent_07_07_7"
+OUTPUT_DIR: "output/webcam_02_cameras_concurrent_14_09_23"
 DEBUG_RUN: false
 FONTSIZE: 15
 MOT:
@@ -21,7 +21,7 @@ MTMC:
 EXPRESS:
   FINAL_VIDEO_OUTPUT: true
   CAMERAS:
-    - "video": "video0" 
-    - "video": "video1"
+    - "video": "0" 
+    - "video": "1"
 
 

@@ -6,6 +6,7 @@ import torch
 import numpy as np
 from PIL import Image
 from yacs.config import CfgNode
+import cv2
 
 from mot.deep_sort import preprocessing
 from mot.tracklet_processing import save_tracklets, save_tracklets_csv, refine_tracklets, save_tracklets_txt
@@ -29,8 +30,13 @@ from config.defaults import get_cfg_defaults
 from config.config_tools import expand_relative_paths
 from config.verify_config import check_mot_config, global_checks
 
+from persistqueue import Queue
+
 MOT_OUTPUT_NAME = "mot"
-NUM_FRAMES_LOOP = 500
+MAX_NUM_FRAME = 300
+NUM_FRAMES_LOOP = 100
+
+
 
 def filter_boxes(boxes, scores, classes, good_classes, min_confid=0.5, mask=None):
     """Filter the detected boxes by confidence scores, classes and location.
@@ -82,7 +88,7 @@ def box_change_skewed(box, prev_box, skew_ratio=0.1, eps=1e-5):
     return min(lr, ud) <= skew_ratio or max(lr, ud) >= 1 / skew_ratio
 
 
-def run_mot(cfg: CfgNode):
+def run_mot(cfg: CfgNode, detector, extractor):
     """Run Multi-object tracking, defined by a config."""
 
     # check and verify config (has to be done after logging init to see errors)
@@ -107,44 +113,25 @@ def run_mot(cfg: CfgNode):
 
     # non max suppression param
     nms_max_overlap = 0.85
-
-    if len(cfg.SYSTEM.GPU_IDS) == 0:
-        device = torch.device("cpu")
-    else:
-        gpu_id = min(map(int, cfg.SYSTEM.GPU_IDS))
-        if gpu_id >= torch.cuda.device_count():
-            log.error(
-                f"Gpu id {gpu_id} is higher than the number of cuda GPUs available ({torch.cuda.device_count()}).")
-            return None
-        device = torch.device(f"cuda:{gpu_id}")
-
-    # initialize reid model
-    reid_model = load_model_from_opts(cfg.MOT.REID_MODEL_OPTS,
-                                      ckpt=cfg.MOT.REID_MODEL_CKPT,
-                                      remove_classifier=True)
-    if cfg.MOT.REID_FP16:
-        reid_model.half()
-    reid_model.to(device)
-    reid_model.eval()
-    extractor = create_extractor(FeatureExtractor, batch_size=cfg.MOT.REID_BATCHSIZE,
-                                 model=reid_model)
-
     
+    
+        
     # newName = name.split('.')[0] + '.avi'
     # videoStreaming =  parent_path+'/'+newName
     # subprocess.call(['ffmpeg', '-i', cfg.MOT.VIDEO, '-c', 'libx265', '-r', '5' , '-vf', "scale=1280:720"  , videoStreaming])
 
-    video_in = imageio.get_reader("<"+cfg.MOT.VIDEO+">", size=(1280, 720))
+    #video_in = imageio.get_reader("<"+cfg.MOT.VIDEO+">", size=(1280, 720))
     #video_in = imageio.get_reader(cfg.MOT.VIDEO)
 
-    video_meta = video_in.get_meta_data()
-    print(video_meta["codec"])
+    #video_meta = video_in.get_meta_data()
+    video_codec = 'mjpeg' 
+
     #print(video_meta)
-    video_w, video_h = video_meta["size"]
-    #video_frames = video_in.count_frames()
-    video_fps = video_meta["fps"]
-    #VIDEO_EXT = cfg.MOT.VIDEO.split(".")[-1]
-    #VIDEO_EXT = videoStreaming.split(".")[-1]
+    #video_w, video_h = video_meta["size"] #480,640
+    #video_w, video_h = 480,640 ; 1280,720
+    video_w, video_h = 1280,720
+    #video_fps = video_meta["fps"] #30
+    video_fps = 30
     VIDEO_EXT = "avi"
     
     # initialize zone matching
@@ -179,26 +166,8 @@ def run_mot(cfg: CfgNode):
     else:
         raise ValueError("Tracker not implemented.")
 
-    # load detector
-    detector = load_yolo(cfg.MOT.DETECTOR)
-    detector.to(device)
 
-    # load attribute extractors
-    if len(cfg.MOT.STATIC_ATTRIBUTES) > 0:
-        static_attrs = {
-            k: v for x in cfg.MOT.STATIC_ATTRIBUTES for k, v in x.items()}
-        static_extractor = AttributeExtractorMixed(static_attrs, cfg.MOT.ATTRIBUTE_INFER_FP16,
-                                                   device, cfg.MOT.ATTRIBUTE_INFER_BATCHSIZE)
-    else:
-        static_extractor = None
 
-    if len(cfg.MOT.DYNAMIC_ATTRIBUTES) > 0:
-        dynamic_attrs = {
-            k: v for x in cfg.MOT.STATIC_ATTRIBUTES for k, v in x.items()}
-        dynamic_extractor = AttributeExtractorMixed(dynamic_attrs, cfg.MOT.ATTRIBUTE_INFER_FP16,
-                                                    device, cfg.MOT.ATTRIBUTE_INFER_BATCHSIZE)
-    else:
-        dynamic_extractor = None
 
     # load input mask if any
     if cfg.MOT.DETECTION_MASK is not None:
@@ -220,8 +189,8 @@ def run_mot(cfg: CfgNode):
         video_out = FileVideo(cfg.FONT,
                               os.path.join(cfg.OUTPUT_DIR,
                                            f"{MOT_OUTPUT_NAME}_online_0.{VIDEO_EXT}"),
-                              format='FFMPEG', mode='I', fps=video_meta["fps"] , pixelformat= "yuvj420p",
-                              codec=video_meta["codec"],
+                              format='FFMPEG', mode='I', fps=video_fps , pixelformat= "yuvj420p",
+                              codec=video_codec,
                               #codec="libx264",
                               fontsize=cfg.FONTSIZE)
         
@@ -238,13 +207,34 @@ def run_mot(cfg: CfgNode):
     timer = Timer()
 
     count_save = 0
-     
-    for frame_num, frame in enumerate(video_in):
+
+
+    cameras_dict = {}
+    cameras_dict["0"] = 'rtsp://user-scity01:smartcity01@192.168.30.21/Streaming/channels/101'
+    cameras_dict["1"] = 'rtsp://admin:Hik12345@192.168.20.96/Streaming/channels/101'
+    cameras_dict["2"] = 'rtsp://admin:Hik12345@192.168.20.175/Streaming/channels/101'
+
+    #Ctic: 
+    #cap = cv2.VideoCapture(cameras_dict[str(cfg.MOT.VIDEO)])
+
+    #Local
+    cap = cv2.VideoCapture(int(cfg.MOT.VIDEO))
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, video_w)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, video_h)
+    
+    frame_num = 0
+    #for frame_num, frame in enumerate(video_in):
+    while True:
+        ret, frame = cap.read()
+        frame_num+=1
+        if frame_num >MAX_NUM_FRAME:
+            break
         if cfg.DEBUG_RUN and frame_num >= 80:
             break
-
-        if frame_num >=1501:
-            break
+        if frame is None or frame.size == 0:
+            continue
+        frame = cv2.cvtColor(src=frame, code=cv2.COLOR_BGR2RGB)
         benchmark.restart_timer()
         if frame_num % 1 == 0 :  
             res = detector(frame).xywh[0].cpu().numpy()    
@@ -283,15 +273,11 @@ def run_mot(cfg: CfgNode):
             benchmark.register_call("nonmax suppression")
 
             # get attributes
-            static_attribs = static_extractor(
-                frame, boxs, features) if static_extractor else {}
-            dynamic_attribs = dynamic_extractor(
-                frame, boxs, features) if dynamic_extractor else {}
 
             benchmark.register_call("attribute extraction")
 
             # update tracker
-            tracker.update(frame_num, detections, static_attribs, dynamic_attribs)
+            tracker.update(frame_num, detections, {},{})
             benchmark.register_call("tracker")
 
             active_track_ids = list(tracker.active_track_ids)
@@ -370,20 +356,21 @@ def run_mot(cfg: CfgNode):
             for track in final_tracks:
                 track.compute_mean_feature()
                 track.features = []
-                ##
-                # track.frames = []
-                # # bounding boxes in tlwh format
-                # track.bboxes = []
 
-
-            csv_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.csv")
-            save_tracklets_csv(final_tracks, csv_save_path)
+            # csv_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.csv")
+            # save_tracklets_csv(final_tracks, csv_save_path)
 
             # txt_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.txt")
             # save_tracklets_txt(final_tracks, txt_save_path)
 
-            pkl_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.pkl")
-            save_tracklets(final_tracks, pkl_save_path)
+            # pkl_save_path = os.path.join(cfg.OUTPUT_DIR, f"{MOT_OUTPUT_NAME}_{count_save}.pkl")
+            # save_tracklets(final_tracks, pkl_save_path)
+
+            queue = Queue(os.path.join(cfg.OUTPUT_DIR, f"db"))
+            queue.put(final_tracks)
+            # Signal the completion of queue creation by creating a flag file
+            with open(os.path.join(cfg.OUTPUT_DIR, f"queue_created{count_save}.txt"), 'w') as flag_file:
+                flag_file.write("Queue and database created.")
 
             # if len(cfg.EVAL.GROUND_TRUTHS) == 1:
             #     cfg.defrost()
@@ -415,13 +402,13 @@ def run_mot(cfg: CfgNode):
             video_out = FileVideo(cfg.FONT,
                               os.path.join(cfg.OUTPUT_DIR,
                                            f"{MOT_OUTPUT_NAME}_online_{count_save}.{VIDEO_EXT}"),
-                              format='FFMPEG', mode='I', fps=video_meta["fps"] , pixelformat= "yuvj420p",
-                              codec=video_meta["codec"],
+                              format='FFMPEG', mode='I', fps=video_fps , pixelformat= "yuvj420p",
+                              codec=video_codec,
                               fontsize=cfg.FONTSIZE)
 
             
 
-    video_in.close()
+    #video_in.close()
     time_taken = f"{int(timer.elapsed() / 60)} min {int(timer.elapsed() % 60)} sec"
     # avg_fps = video_frames / timer.elapsed()
     # log.info(
@@ -440,7 +427,7 @@ def run_mot(cfg: CfgNode):
 
     ### here pass into loop
     #return 0
-    return final_tracks
+    return 0
 
 
 if __name__ == "__main__":

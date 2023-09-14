@@ -6,6 +6,7 @@ import torch
 import numpy as np
 from PIL import Image
 from yacs.config import CfgNode
+import cv2
 
 from mot.deep_sort import preprocessing
 from mot.tracklet_processing import save_tracklets, save_tracklets_csv, refine_tracklets, save_tracklets_txt
@@ -32,8 +33,8 @@ from config.verify_config import check_mot_config, global_checks
 from persistqueue import Queue
 
 MOT_OUTPUT_NAME = "mot"
-MAX_NUM_FRAME = 300
-NUM_FRAMES_LOOP = 100
+MAX_NUM_FRAME = 600
+NUM_FRAMES_LOOP = 150
 
 
 
@@ -140,17 +141,19 @@ def run_mot(cfg: CfgNode):
     # videoStreaming =  parent_path+'/'+newName
     # subprocess.call(['ffmpeg', '-i', cfg.MOT.VIDEO, '-c', 'libx265', '-r', '5' , '-vf', "scale=1280:720"  , videoStreaming])
 
-    video_in = imageio.get_reader("<"+cfg.MOT.VIDEO+">", size=(1280, 720))
+    #video_in = imageio.get_reader("<"+cfg.MOT.VIDEO+">", size=(1280, 720))
     #video_in = imageio.get_reader(cfg.MOT.VIDEO)
 
-    video_meta = video_in.get_meta_data()
-    print(video_meta["codec"])
+
+    #video_meta = video_in.get_meta_data()
+    video_codec = 'mjpeg' 
+
     #print(video_meta)
-    video_w, video_h = video_meta["size"]
-    #video_frames = video_in.count_frames()
-    video_fps = video_meta["fps"]
-    #VIDEO_EXT = cfg.MOT.VIDEO.split(".")[-1]
-    #VIDEO_EXT = videoStreaming.split(".")[-1]
+    #video_w, video_h = video_meta["size"] #480,640
+    #video_w, video_h = 480,640 ; 1280,720
+    video_w, video_h = 1280,720
+    #video_fps = video_meta["fps"] #30
+    video_fps = 30
     VIDEO_EXT = "avi"
     
     # initialize zone matching
@@ -226,8 +229,8 @@ def run_mot(cfg: CfgNode):
         video_out = FileVideo(cfg.FONT,
                               os.path.join(cfg.OUTPUT_DIR,
                                            f"{MOT_OUTPUT_NAME}_online_0.{VIDEO_EXT}"),
-                              format='FFMPEG', mode='I', fps=video_meta["fps"] , pixelformat= "yuvj420p",
-                              codec=video_meta["codec"],
+                              format='FFMPEG', mode='I', fps=video_fps , pixelformat= "yuvj420p",
+                              codec=video_codec,
                               #codec="libx264",
                               fontsize=cfg.FONTSIZE)
         
@@ -244,13 +247,40 @@ def run_mot(cfg: CfgNode):
     timer = Timer()
 
     count_save = 0
-     
-    for frame_num, frame in enumerate(video_in):
-        if cfg.DEBUG_RUN and frame_num >= 80:
-            break
 
+    """
+    ['rtsp://admin:Hik12345@192.168.20.175/Streaming/channels/101', #salon
+                                'rtsp://admin:Hik12345@192.168.20.96/Streaming/channels/101', #labo smartcity
+                                'rtsp://user-scity01:smartcity01@192.168.30.20/Streaming/channels/101', #cam trasera
+                                'rtsp://user-scity01:smartcity01@192.168.30.21/Streaming/channels/101', #cam frontal
+                                'rtsp://user-scity01:smartcity01@192.168.30.22/Streaming/channels/101' # cam pasadizo 1er piso
+                                ]
+    """
+    cameras_dict = {}
+    cameras_dict["0"] = 'rtsp://user-scity01:smartcity01@192.168.30.21/Streaming/channels/101'
+    cameras_dict["1"] = 'rtsp://admin:Hik12345@192.168.20.96/Streaming/channels/101'
+    cameras_dict["2"] = 'rtsp://admin:Hik12345@192.168.20.175/Streaming/channels/101'
+    print(cameras_dict["2"])
+    #cap = cv2.VideoCapture(cfg.MOT.VIDEO)
+    #print(cfg.MOT.VIDEO.split(';')[1])
+
+
+    #cap = cv2.VideoCapture(cfg.MOT.VIDEO)
+    cap = cv2.VideoCapture(int(cfg.MOT.VIDEO))
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, video_w)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, video_h)
+    frame_num = 0
+    #for frame_num, frame in enumerate(video_in):
+    while True:
+        ret, frame = cap.read()
+        frame_num+=1
         if frame_num >MAX_NUM_FRAME:
             break
+        if cfg.DEBUG_RUN and frame_num >= 80:
+            break
+        if frame is None or frame.size == 0:
+            continue
+        frame = cv2.cvtColor(src=frame, code=cv2.COLOR_BGR2RGB)
         benchmark.restart_timer()
         if frame_num % 1 == 0 :  
             res = detector(frame).xywh[0].cpu().numpy()    
@@ -422,13 +452,13 @@ def run_mot(cfg: CfgNode):
             video_out = FileVideo(cfg.FONT,
                               os.path.join(cfg.OUTPUT_DIR,
                                            f"{MOT_OUTPUT_NAME}_online_{count_save}.{VIDEO_EXT}"),
-                              format='FFMPEG', mode='I', fps=video_meta["fps"] , pixelformat= "yuvj420p",
-                              codec=video_meta["codec"],
+                              format='FFMPEG', mode='I', fps=video_fps , pixelformat= "yuvj420p",
+                              codec=video_codec,
                               fontsize=cfg.FONTSIZE)
 
             
 
-    video_in.close()
+    #video_in.close()
     time_taken = f"{int(timer.elapsed() / 60)} min {int(timer.elapsed() % 60)} sec"
     # avg_fps = video_frames / timer.elapsed()
     # log.info(
@@ -447,7 +477,7 @@ def run_mot(cfg: CfgNode):
 
     ### here pass into loop
     #return 0
-    return final_tracks
+    return 0
 
 
 if __name__ == "__main__":
